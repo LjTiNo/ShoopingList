@@ -8,10 +8,9 @@ const port = 8000;
 
 app.use(bodyParser.json());
 
-//check
 
 MongoClient.connect(db.url,{ useNewUrlParser: true }, (err, database) => {
-    if (err) return console.log(err)
+    if (err) return console.log(err);
 
 
     db = database.db("shoppinglist");
@@ -19,7 +18,7 @@ MongoClient.connect(db.url,{ useNewUrlParser: true }, (err, database) => {
 
 
 
-    app.listen(port, () => {
+    app.listen(process.env.PORT ||port, () => {
 
         console.log("Express server listening on port %d in %s mode - We Are lIVE!",port, app.settings.env);
     });
