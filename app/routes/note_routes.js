@@ -1,23 +1,173 @@
 module.exports = function (app, db) {
     const ObjectID = require('mongodb').ObjectID;
+    const CURRENT = " - Current";
+    const OLD = " - Old";
 
-    app.post('/register', (req, res) => {
+    app.post('/registerfamily', (req, res) => {
+        const familyname = req.body.name.toLowerCase();
+        const check = {name: familyname};
+
+
+        db.collection('Families').findOne(check, function (err, familyresult) {
+            if (err) throw err;
+            if (familyresult === null) {
+                db.collection('Families').insert(check, (err, result) => {
+                    console.log("Family " + familyname + " added successfully");
+                    db.createCollection(familyname + CURRENT);
+                    db.createCollection(familyname + OLD);
+                    if (err) {
+                        res.send({'error': 'An error has occurred in Post /registerFamily.'});
+                    } else {
+                        //Send back to front.
+                        res.send({'message': "Family added successfully"});
+                    }
+                });
+            } else {
+                res.send({'message': "There is already a Family with this name " + familyname});
+                console.log("There is already a Family with this name " + familyname);
+
+            }
+
+        });
+
+    });
+
+    app.get('/getallfamilies', (req, res) => {
+        db.collection('Families').find({}).toArray(function (err, result) {
+            if (err) {
+                res.send({'error': 'An error has occurred in Get /getallfamilies.'});
+            } else {
+                //Send back to front.
+                console.log("Get All Families Sent: ");
+                console.log(result);
+                res.send(result);
+            }
+        });
+    });
+
+    app.post('/registermember', (req, res) => {
         const user = {
             id: req.body.id,
             name: req.body.name,
-            family: req.body.family
+            family: req.body.family.toLowerCase()
+        };
+        const check = {'id': req.body.id};
+        db.collection('Clients').findOne(check, function (err, userresult) {
+            if (err) throw err;
+            if (userresult === null) { // if there is no userid with the same id.
+                db.collection('Clients').insertOne(user, (err, result) => {
+                    if (err) {
+                        res.send({'error': 'An error has occurred in Post /registerMember.'});
+                    } else {
+                        //Send back to front.
+                        console.log("User " + user.name + " added successfully");
+                        res.send({'message': "User " + user.name + " added successfully"});
+                    }
+                });
+
+            } else {
+                res.send({'message': "There is already a user with this userid " + req.body.id});
+                console.log("There is already a user with this userid " + req.body.id);
+
+            }
+        });
+
+    });
+
+    app.post('/updatecurrent/:id/:family', (req, res) => {
+        const id = req.params.id;
+        const family = req.params.family.toLowerCase();
+
+        const note = {
+            products: req.body.products
         };
 
 
-        db.collection('Clients').insertOne(user, (err, result) => {
-            if (err) {
-                res.send({'error': 'An error has occurred in Post /register.'});
+        const check = {'id': id};
+        db.collection('Clients').findOne(check, function (err, result) {
+            if (err) throw err;
+
+            if (result !== null && result.family === family) { //if userid is part of the family.
+                db.collection(family + CURRENT).deleteMany();
+                db.collection(family + CURRENT).insertOne(note, (err, result) => {
+                    if (err) {
+                        res.send({'error': 'An error has occurred in Post /updatecurrent.'});
+                    } else {
+                        //Send back to front.
+                        console.log(family + " current list updated added successfully");
+                        res.send({'message': family + " current list updated added successfully"});
+                    }
+                });
+
+
             } else {
-                //Send back to front.
-                console.log("User " + user.name + " added successfully");
-                res.send({'message': "User " + user.name + " added successfully"});
+                console.log("The user id:" + id + " is not a part of the family '" + family + "'!");
+                res.send({'error': "The user id:" + id + " is not a part of the family '" + family + "'!"});
             }
         });
+
+
+    });
+
+
+    app.get('/getcurrent/:id/:family', (req, res) => {
+        const id = req.params.id;
+        const family = req.params.family.toLowerCase();
+
+
+        const check = {'id': id};
+        db.collection('Clients').findOne(check, function (err, result) {
+            if (err) throw err;
+
+            if (result !== null && result.family === family) { //if userid is part of the family.
+                db.collection(family + CURRENT).find({}).toArray(function (err, result) {
+                    if (err) {
+                        res.send({'error': 'An error has occurred in Get /getcurrent.'});
+                    } else {
+                        //Send back to front.
+                        console.log("current list in family " + family + " requested by userid " + id + " sent!");
+                        if (result[0] == null)
+                            res.send("{}");
+                        else
+                            res.send(result[0]);
+                    }
+                });
+
+            } else {
+                console.log("The user id:" + id + " is not a part of the family '" + family + "'!");
+                res.send({'error': "The user id:" + id + " is not a part of the family '" + family + "'!"});
+            }
+        });
+
+
+    });
+
+    app.get('/getold/:id/:family', (req, res) => {
+        const id = req.params.id;
+        const family = req.params.family.toLowerCase();
+
+
+        const check = {'id': id};
+        db.collection('Clients').findOne(check, function (err, result) {
+            if (err) throw err;
+
+            if (result !== null && result.family === family) { //if userid is part of the family.
+                db.collection(family + OLD).find({}).toArray(function (err, result) {
+                    if (err) {
+                        res.send({'error': 'An error has occurred in Get /getcurrent.'});
+                    } else {
+                        //Send back to front.
+                        console.log("old lists in family " + family + " requested by userid " + id + " sent!");
+                        res.send(result);
+                    }
+                });
+
+            } else {
+                console.log("The user id:" + id + " is not a part of the family '" + family + "'!");
+                res.send({'error': "The user id:" + id + " is not a part of the family '" + family + "'!"});
+            }
+        });
+
 
     });
 
