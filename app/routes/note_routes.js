@@ -3,6 +3,21 @@ module.exports = function (app, db) {
     const CURRENT = " - Current";
     const OLD = " - Old";
 
+    function getCurrentTime(){
+        let ts = Date.now();
+
+        let date_ob = new Date(ts);
+        let date = date_ob.getDate();
+        let month = date_ob.getMonth() + 1;
+        let year = date_ob.getFullYear();
+        let hour = date_ob.getHours();
+        let minute = date_ob.getMinutes();
+        let second = date_ob.getSeconds();
+
+// returns date & time in DD-MM-YYYY_HH:MM:SS format
+        return(date + "-" + month + "-" + year + "_" + hour + ":" +  minute + ":" + second);
+    }
+
     app.post('/registerfamily', (req, res) => {
         const familyname = req.body.name.toLowerCase();
         const check = {name: familyname};
@@ -130,6 +145,53 @@ module.exports = function (app, db) {
                             res.send("{}");
                         else
                             res.send(result[0]);
+                    }
+                });
+
+            } else {
+                console.log("The user id:" + id + " is not a part of the family '" + family + "'!");
+                res.send({'error': "The user id:" + id + " is not a part of the family '" + family + "'!"});
+            }
+        });
+
+
+    });
+
+    app.post('/savecurrent/:id/:family', (req, res) => {
+        const id = req.params.id;
+        const family = req.params.family.toLowerCase();
+
+
+        const check = {'id': id};
+        db.collection('Clients').findOne(check, function (err, result) {
+            if (err) throw err;
+
+            if (result !== null && result.family === family) { //if userid is part of the family.
+                db.collection(family + CURRENT).find({}).toArray(function (err, result) {
+                    if (err) {
+                        res.send({'error': 'An error has occurred in Post /savecurrent.'});
+                    } else {
+                        //Send back to front.
+                        let currentTime = getCurrentTime();
+                        console.log(currentTime);
+                        let myresult = result[0];
+                        myresult["timestamp"] = currentTime;
+                        console.log("current list in family " + family + " requested by userid " + id + " sent! - SaveCurrent");
+                        if (result[0] == null)
+                            res.send({'error': 'Cant save an empty list.'});
+                        else {
+                            db.collection(family + OLD).insertOne(myresult, (err, result) => {
+                                if (err) {
+                                    res.send({'error': 'An error has occurred in Post /savecurrent.' + err});
+                                } else {
+                                    //Send back to front.
+                                    console.log(family + " current list saved successfully");
+                                    res.send({'message': family + " current list saved successfully",
+                                                    'data': myresult});
+                                }
+                            });
+                            //res.send(myresult);
+                        }
                     }
                 });
 
